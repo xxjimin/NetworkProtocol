@@ -192,7 +192,7 @@ void L2_FSMrun(void)
                 uint8_t msgSize = L2_msg_encodeData(msg, payload, 0, 1, 1);  // flag_end=1
                 L2_LLI_sendData(msg, msgSize, 255);  // dest=255 = broadcast 의미 (모두에게)
                 
-                debug("[L2] BCAST sent with ID %i\n", myL2ID);
+                debug(" [L2] BCAST sent with ID %i\n", myL2ID);
             }
 
             
