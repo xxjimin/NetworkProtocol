@@ -48,3 +48,11 @@ uint8_t* L2_msg_getWord(uint8_t* msg)
 {
     return &msg[L2_MSG_OFFSET_DATA];
 }
+
+// L2_msg.cpp
+uint8_t L2_msg_encodeChat(uint8_t* msg, uint8_t type, const char* payload, uint8_t len) {
+    msg[L2_MSG_OFFSET_TYPE] = type;
+    msg[L2_MSG_OFFSET_SEQ] = 0;
+    memcpy(&msg[L2_MSG_OFFSET_DATA], payload, len);
+    return L2_MSG_OFFSET_DATA + len;
+}

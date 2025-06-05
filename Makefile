@@ -40,6 +40,8 @@ VPATH = ..
 # Project settings
 
 PROJECT := myProtocol
+CXXFLAGS += -std=c++11
+
 
 
 # Project settings

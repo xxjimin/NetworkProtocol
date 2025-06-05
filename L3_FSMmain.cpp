@@ -4,106 +4,101 @@
 #include "L3_LLinterface.h"
 #include "protocol_parameters.h"
 #include "mbed.h"
+#include "L2_LLinterface.h"
+#include "L2_msg.h"
 
+// FSM 상태 정의
+#define L3STATE_IDLE 0
 
-//FSM state -------------------------------------------------
-#define L3STATE_IDLE                0
-
-
-//state variables
-static uint8_t main_state = L3STATE_IDLE; //protocol state
+// 상태 변수
+static uint8_t main_state = L3STATE_IDLE;
 static uint8_t prev_state = main_state;
 
-//SDU (input)
-static uint8_t originalWord[1030];
-static uint8_t wordLen=0;
+// 입력 버퍼
+static char chat_input_buffer[1030];
+static uint8_t wordLen = 0;
 
-static uint8_t sdu[1030];
-
-//serial port interface
+// 시리얼 포트
 static Serial pc(USBTX, USBRX);
+static Timeout bcastTimer;
 static uint8_t myDestId;
 
-//application event handler : generating SDU from keyboard input
-static void L3service_processInputWord(void)
-{
+// ===== BCAST 전송 함수 =====
+void sendPeriodicBcast() {
+    uint8_t msg[64];
+    uint8_t payload[1] = { L2_LLI_getSrcId() };
+    uint8_t msgSize = L2_msg_encodeData(msg, payload, 0, 1, 1);
+    L2_LLI_sendData(msg, msgSize, 255);  // Broadcast
+    pc.printf("\n[BCAST] Sent BCAST to all\n");
+
+    bcastTimer.attach(&sendPeriodicBcast, 15.0f);  // 15초마다 반복
+}
+
+// ===== 사용자 입력 처리 함수 =====
+static void L3service_processInputWord(void) {
     char c = pc.getc();
-    if (!L3_event_checkEventFlag(L3_event_dataToSend))
-    {
-        if (c == '\n' || c == '\r')
-        {
-            originalWord[wordLen++] = '\0';
+
+    if (!L3_event_checkEventFlag(L3_event_dataToSend)) {
+        if (c == '\n' || c == '\r') {
+            chat_input_buffer[wordLen] = '\0';
             L3_event_setEventFlag(L3_event_dataToSend);
-            debug_if(DBGMSG_L3,"word is ready! ::: %s\n", originalWord);
-        }
-        else
-        {
-            originalWord[wordLen++] = c;
-            if (wordLen >= L3_MAXDATASIZE-1)
-            {
-                originalWord[wordLen++] = '\0';
+        } else {
+            if (wordLen < sizeof(chat_input_buffer) - 1) {
+                chat_input_buffer[wordLen++] = c;
+            } else {
+                chat_input_buffer[wordLen] = '\0';
                 L3_event_setEventFlag(L3_event_dataToSend);
-                pc.printf("\n max reached! word forced to be ready :::: %s\n", originalWord);
+                pc.printf("\n[WARN] 입력 초과로 자동 전송됨: %s\n", chat_input_buffer);
+                wordLen = 0;
             }
         }
     }
 }
 
-
-
-void L3_initFSM(uint8_t destId)
-{
-
+// ===== 초기화 함수 =====
+void L3_initFSM(uint8_t destId) {
     myDestId = destId;
-    //initialize service layer
     pc.attach(&L3service_processInputWord, Serial::RxIrq);
-
-    pc.printf("Give a word to send : ");
+    sendPeriodicBcast();  // 최초 한 번만 호출, 이후 자동 반복
+    pc.printf("Give a word to send: ");
 }
 
-void L3_FSMrun(void)
-{   
-    if (prev_state != main_state)
-    {
-        debug_if(DBGMSG_L3, "[L3] State transition from %i to %i\n", prev_state, main_state);
+// ===== FSM 실행 함수 =====
+void L3_FSMrun(void) {
+    if (prev_state != main_state) {
         prev_state = main_state;
     }
 
-    //FSM should be implemented here! ---->>>>
-    switch (main_state)
-    {
-        case L3STATE_IDLE: //IDLE state description
-            
-            if (L3_event_checkEventFlag(L3_event_msgRcvd)) //if data reception event happens
-            {
-                //Retrieving data info.
+    switch (main_state) {
+        case L3STATE_IDLE:
+
+            // 메시지 수신 처리
+            if (L3_event_checkEventFlag(L3_event_msgRcvd)) {
                 uint8_t* dataPtr = L3_LLI_getMsgPtr();
                 uint8_t size = L3_LLI_getSize();
 
-                debug("\n -------------------------------------------------\nRCVD MSG : %s (length:%i)\n -------------------------------------------------\n", 
-                            dataPtr, size);
-                
-                pc.printf("Give a word to send : ");
-                
+                static uint32_t lastPrint = 0;
+                if (clock() - lastPrint > 1000) {  // 너무 자주 출력 방지
+                    pc.printf("\n-------------------------------------------------\n");
+                    pc.printf("RCVD MSG: %s (length: %i)\n", dataPtr, size);
+                    pc.printf("-------------------------------------------------\n");
+                    lastPrint = clock();
+                }
+
                 L3_event_clearEventFlag(L3_event_msgRcvd);
             }
-            else if (L3_event_checkEventFlag(L3_event_dataToSend)) //if data needs to be sent (keyboard input)
-            {
-                //msg header setting
-                strcpy((char*)sdu, (char*)originalWord);
-                debug("[L3] msg length : %i\n", wordLen);
-                L3_LLI_dataReqFunc(sdu, wordLen, myDestId);
 
-                debug_if(DBGMSG_L3, "[L3] sending msg....\n");
+            // 메시지 전송
+            else if (L3_event_checkEventFlag(L3_event_dataToSend)) {
+                L3_LLI_dataReqFunc((uint8_t*)chat_input_buffer, strlen(chat_input_buffer), myDestId);
+                pc.printf("\n[SENT] %s\n", chat_input_buffer);
                 wordLen = 0;
-
-                pc.printf("Give a word to send : ");
-
+                pc.printf("Give a word to send: ");
                 L3_event_clearEventFlag(L3_event_dataToSend);
             }
             break;
 
-        default :
+        default:
             break;
     }
 }
