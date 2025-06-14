@@ -1,21 +1,23 @@
-#define DBGMSG_L2                       0 //debug print control
-#define DBGMSG_L3                       0 //debug print control
+#ifndef PROTOCOL_PARAMETERS_H
+#define PROTOCOL_PARAMETERS_H
 
-#define L3_MAXDATASIZE                  1024
+// 기존 파라미터들...
+#define L2_ARQ_MINWAITTIME          1
+#define L2_ARQ_MAXWAITTIME          3
+#define L2_ARQ_MAXRETRANSMISSION    3
 
+// L2 브로드캐스트 ID 정의
+#define L2_BROADCAST_ID             255
 
-#define L2_ARQ_MAXRETRANSMISSION        10
-#define L2_ARQ_MAXWAITTIME              5
-#define L2_ARQ_MINWAITTIME              2
+// 디버그 메시지 설정
+#define DBGMSG_L2                   1
+#define DBGMSG_L3                   1
 
-//추가
-#define RSSI_THRESHOLD -90  // 단위: dBm
+// PC 시리얼 외부 선언
+extern Serial pc;
 
-#define BCAST        0x01
-#define QUERY_LIKE   0x02
-#define ANS_LIKE     0x03
-#define CHAT_REQ     0x04
-#define CHAT_ACK     0x05
-#define CHAT_DEC     0x06
-#define CHAT_DATA    0x07
-#define CHAT_END     0x08
+// 디버그 매크로
+#define debug(...)                  pc.printf(__VA_ARGS__)
+#define debug_if(cond, ...)         if(cond) pc.printf(__VA_ARGS__)
+
+#endif

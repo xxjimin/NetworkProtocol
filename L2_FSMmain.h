@@ -1,4 +1,5 @@
 void L2_initFSM(uint8_t myId);
+<<<<<<< HEAD
 void L2_FSMrun(void);
 void L2_setLikedId(uint8_t id);
 
@@ -7,3 +8,6 @@ void L2_setLikedId(uint8_t id);
 
 const uint32_t broadcast_interval = 5000; // 5초 주기 (단위: ms)
 
+=======
+void L2_FSMrun(void);
+>>>>>>> dgyeong

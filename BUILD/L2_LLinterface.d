@@ -139,5 +139,9 @@ L2_LLinterface.o: ../L2_LLinterface.cpp ../mbed_config.h ../mbed.h \
  ../mbed/platform/FileSystemHandle.h ../mbed/platform/DirHandle.h \
  ../mbed/platform/CriticalSectionLock.h ../mbed/platform/DeepSleepLock.h \
  ../mbed/platform/mbed_stats.h ../mbed/platform/ScopedLock.h \
+<<<<<<< HEAD
  ../PHYMAC_layer.h ../L2_FSMevent.h ../L2_msg.h ../protocol_parameters.h \
  ../L2_LLinterface.h
+=======
+ ../PHYMAC_layer.h ../L2_FSMevent.h ../L2_msg.h ../protocol_parameters.h
+>>>>>>> dgyeong

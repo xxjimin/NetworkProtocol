@@ -40,8 +40,6 @@ VPATH = ..
 # Project settings
 
 PROJECT := myProtocol
-CXXFLAGS += -std=c++11
-
 
 
 # Project settings
@@ -54,11 +52,8 @@ OBJECTS += L2_msg.o
 OBJECTS += L2_FSMevent.o
 OBJECTS += L2_LLinterface.o
 OBJECTS += L2_timer.o
-OBJECTS += L3_FSMmain.o
-OBJECTS += L3_msg.o
-OBJECTS += L3_FSMevent.o
+OBJECTS += L3_chatProtocol.o
 OBJECTS += L3_LLinterface.o
-OBJECTS += L3_timer.o
 
  SYS_OBJECTS += lib/Rx_HAL.o
  SYS_OBJECTS += lib/Rx_HHI.o

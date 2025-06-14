@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 L2_msg.o: ../L2_msg.cpp ../mbed_config.h ../L2_msg.h ../mbed.h \
+=======
+L2_msg.o: ../L2_msg.cpp ../mbed_config.h ../mbed.h \
+>>>>>>> dgyeong
  ../mbed/platform/mbed_version.h ../mbed/platform/mbed_toolchain.h \
  ../mbed/platform/mbed_preprocessor.h ../mbed/platform/platform.h \
  ../mbed/platform/mbed_retarget.h \
@@ -138,4 +142,8 @@ L2_msg.o: ../L2_msg.cpp ../mbed_config.h ../L2_msg.h ../mbed.h \
  ../mbed/platform/ATCmdParser.h ../mbed.h \
  ../mbed/platform/FileSystemHandle.h ../mbed/platform/DirHandle.h \
  ../mbed/platform/CriticalSectionLock.h ../mbed/platform/DeepSleepLock.h \
+<<<<<<< HEAD
  ../mbed/platform/mbed_stats.h ../mbed/platform/ScopedLock.h
+=======
+ ../mbed/platform/mbed_stats.h ../mbed/platform/ScopedLock.h ../L2_msg.h
+>>>>>>> dgyeong

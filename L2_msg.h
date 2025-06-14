@@ -20,6 +20,7 @@ int L2_msg_checkIfEndData(uint8_t* msg);
 uint8_t L2_msg_encodeAck(uint8_t* msg_ack, uint8_t seq);
 uint8_t L2_msg_encodeData(uint8_t* msg_data, uint8_t* data, int seq, int len, uint8_t);
 uint8_t L2_msg_getSeq(uint8_t* msg);
+<<<<<<< HEAD
 uint8_t* L2_msg_getWord(uint8_t* msg);
 
 // L2_msg.h
@@ -30,3 +31,6 @@ uint8_t* L2_msg_getWord(uint8_t* msg);
 #define L2_MSG_TYPE_CHAT_END    14
 
 uint8_t L2_msg_encodeChat(uint8_t* msg, uint8_t type, const char* payload, uint8_t len);
+=======
+uint8_t* L2_msg_getWord(uint8_t* msg);
+>>>>>>> dgyeong
