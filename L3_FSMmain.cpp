@@ -7,21 +7,18 @@
 #include <vector>
 #include <cstring>
 
-// FSM 상태 정의
-#define L3STATE_IDLE                0
-#define L3STATE_CONNECTION          1
-#define L3STATE_DISCONNECTION       2
-#define L3STATE_MESSAGING           3
+#define L3STATE_IDLE 0
+#define L3STATE_CONNECTION 1
+#define L3STATE_DISCONNECTION 2
+#define L3STATE_MESSAGING 3
 
-// 프로토콜 파라미터
-#define L3_MAX_RETRY_COUNT          3
-#define L3_RSSI_THRESHOLD           -80
+#define L3_MAX_RETRY_COUNT 3
+#define L3_RSSI_THRESHOLD -80
 #define L3_PROXIMITY_CHECK_INTERVAL 5.0f
-#define L3_BROADCAST_INTERVAL       3.0f
-#define L3_WAIT_RESPONSE_TIMEOUT    10.0f
-#define L3_USER_RESPONSE_TIMEOUT    30.0f
+#define L3_BROADCAST_INTERVAL 3.0f
+#define L3_WAIT_RESPONSE_TIMEOUT 10.0f
+#define L3_USER_RESPONSE_TIMEOUT 30.0f
 
-// 상태 변수들
 static uint8_t main_state = L3STATE_IDLE;
 static uint8_t prev_state = L3STATE_IDLE;
 static uint8_t is_chatting = 0;
@@ -32,7 +29,6 @@ static uint32_t next_target = 0;
 static uint32_t pending_chat_request_id = 0;
 static int retry_count = 0;
 
-// 채팅 후보 리스트 (단순화를 위해 배열 사용)
 static uint32_t previousChatCandidateList[10];
 static uint8_t prev_candidate_count = 0;
 static uint32_t currentChatCandidateList[10];
@@ -40,24 +36,18 @@ static uint8_t curr_candidate_count = 0;
 static uint32_t tempChatCandidateList[10];
 static uint8_t temp_candidate_count = 0;
 
-// 메시지 버퍼
 static char chat_input_buffer[L3_MAXDATASIZE];
 static uint8_t chat_input_len = 0;
 
-// L2에서 받은 메시지 저장용
 static uint8_t received_msg[L3_PDU_MAXSIZE];
 static uint8_t received_msg_len = 0;
 static uint8_t received_src_id = 0;
 static int16_t received_rssi = 0;
 static uint8_t msg_available = 0;
 
-// Layer2로 데이터 전송을 위한 함수 포인터
 static L3_dataReqFunc_t dataReqFunc = NULL;
-
-// 시리얼 인터페이스
 static Serial pc(USBTX, USBRX);
 
-// 내부 함수 선언
 static void L3_sendPDU(uint8_t type, uint32_t target_id, const void* data, uint8_t data_len);
 static void L3_processBCAST(const uint8_t* pdu_data, uint8_t size, int16_t rssi);
 static void L3_processQUERY_LIKE(const uint8_t* pdu_data, uint8_t size);
@@ -72,7 +62,6 @@ static void L3_transitionToState(uint8_t new_state);
 static uint8_t L3_isInCandidateList(uint32_t id);
 static void L3_addToCandidateList(uint32_t id);
 
-// Layer2에서 Layer3로 데이터 전달 시 호출되는 콜백 함수
 void L3_LLI_dataInd(uint8_t* sdu, uint8_t srcId, uint8_t len, int8_t snr, int16_t rssi) {
     if (len <= L3_PDU_MAXSIZE) {
         memcpy(received_msg, sdu, len);
@@ -80,64 +69,52 @@ void L3_LLI_dataInd(uint8_t* sdu, uint8_t srcId, uint8_t len, int8_t snr, int16_
         received_src_id = srcId;
         received_rssi = rssi;
         msg_available = 1;
-        
-        // 메시지 수신 이벤트 설정
         L3_event_setEventFlag(L3_event_msgRcvd);
     }
 }
 
-// Layer2에서 Layer3로 전송 완료 알림
 void L3_LLI_dataCnf(uint8_t isSuccess) {
     if (isSuccess) {
         L3_event_setEventFlag(L3_event_dataSendCnf);
     }
 }
 
-// Layer2에서 Layer3로 ID 재설정 완료 알림
 void L3_LLI_reconfigSrcIdCnf(uint8_t isSuccess) {
     if (isSuccess) {
         L3_event_setEventFlag(L3_event_recfgSrcIdCnf);
     }
 }
 
-// Layer2로 데이터 전송 요청
 static void L3_dataReq(uint8_t* sdu, uint8_t len, uint8_t destId) {
     if (dataReqFunc != NULL) {
         dataReqFunc(sdu, len, destId);
     }
 }
 
-// 사용자 입력 처리
 static void L3service_processInputWord(void) {
     char c = pc.getc();
-    
+    static char cmd_buffer[64];
+    static uint8_t cmd_len = 0;
+
     if (main_state == L3STATE_MESSAGING && !L3_event_checkEventFlag(L3_event_dataToSend)) {
-        // 채팅 중 메시지 입력
         if (c == '\n' || c == '\r') {
             if (chat_input_len > 0) {
                 chat_input_buffer[chat_input_len] = '\0';
                 L3_event_setEventFlag(L3_event_dataToSend);
-                debug_if(DBGMSG_L3, "[L3] Chat message ready: %s\n", chat_input_buffer);
             }
-        } else if (c == '\b' || c == 127) { // 백스페이스
+        } else if (c == '\b' || c == 127) {
             if (chat_input_len > 0) {
                 chat_input_len--;
                 pc.putc('\b'); pc.putc(' '); pc.putc('\b');
             }
         } else if (chat_input_len < L3_MAXDATASIZE - 1) {
             chat_input_buffer[chat_input_len++] = c;
-            pc.putc(c); // 에코
+            pc.putc(c);
         }
     } else {
-        // 일반 명령어 처리
-        static char cmd_buffer[64];
-        static uint8_t cmd_len = 0;
-        
         if (c == '\n' || c == '\r') {
             if (cmd_len > 0) {
                 cmd_buffer[cmd_len] = '\0';
-                
-                // 명령어 파싱
                 if (strncmp(cmd_buffer, "like ", 5) == 0) {
                     liked_id = atoi(cmd_buffer + 5);
                     pc.printf("[L3] Set liked ID to: %d\n", liked_id);
@@ -158,17 +135,16 @@ static void L3service_processInputWord(void) {
                         pc.printf("%d ", previousChatCandidateList[i]);
                     }
                     pc.printf("\n");
-                } else if (strcmp(cmd_buffer, "accept") == 0) {
-                    if (pending_chat_request_id != 0) {
+                } else if (pending_chat_request_id != 0) {
+                    if (strcmp(cmd_buffer, "1") == 0) {
                         L3_event_setEventFlag(L3_event_userResponse);
-                        // Accept 처리는 FSM에서
-                    }
-                } else if (strcmp(cmd_buffer, "decline") == 0) {
-                    if (pending_chat_request_id != 0) {
+                    } else if (strcmp(cmd_buffer, "0") == 0) {
                         L3_sendPDU(L3_PDU_TYPE_CHAT_DEC, pending_chat_request_id, NULL, 0);
                         pending_chat_request_id = 0;
                         L3_timer_stopTimer(L3_TIMER_USER_RESPONSE);
                         pc.printf("[L3] Chat request declined\n");
+                    } else {
+                        pc.printf("[L3] Invalid input. Type 1 (accept) or 0 (decline)\n");
                     }
                 } else if (strcmp(cmd_buffer, "quit") == 0) {
                     if (main_state == L3STATE_MESSAGING) {
@@ -176,43 +152,35 @@ static void L3service_processInputWord(void) {
                         L3_sendPDU(L3_PDU_TYPE_CHAT_END, current_chat_peer, NULL, 0);
                         next_target = 0;
                     }
+                } else {
+                    pc.printf("[L3] Unknown command.\n");
                 }
                 cmd_len = 0;
             }
             pc.printf("> ");
         } else if (c == '\b' || c == 127) {
-            if (cmd_len > 0) {
-                cmd_len--;
-                pc.putc('\b'); pc.putc(' '); pc.putc('\b');
-            }
+            if (cmd_len > 0) { cmd_len--; pc.putc('\b'); pc.putc(' '); pc.putc('\b'); }
         } else if (cmd_len < sizeof(cmd_buffer) - 1) {
-            cmd_buffer[cmd_len++] = c;
-            pc.putc(c);
+            cmd_buffer[cmd_len++] = c; pc.putc(c);
         }
     }
 }
 
 void L3_initFSM(uint8_t destId) {
-    my_id = destId; // 실제로는 자신의 ID로 사용
-    
-    // 타이머 초기화
+    my_id = destId;
     L3_timer_init();
-    
-    // 주기적 타이머 시작
     L3_timer_startTimer(L3_TIMER_BROADCAST, L3_BROADCAST_INTERVAL);
     L3_timer_startTimer(L3_TIMER_PROXIMITY, L3_PROXIMITY_CHECK_INTERVAL);
-    
-    // 시리얼 인터럽트 설정
-    //pc.attach(&L3service_processInputWord, Serial::RxIrq);
-    
-    // Layer2에 데이터 전송 함수 등록
     L3_LLI_setDataReqFunc(L3_dataReq);
-    
     pc.printf("=== LoRa Chat Protocol Started ===\n");
     pc.printf("My ID: %d\n", my_id);
-    pc.printf("Commands: like <ID>, chat <ID>, list, accept, decline, quit\n");
+    pc.printf("Commands: like <ID>, chat <ID>, list, quit\n");
+    pc.printf("When request arrives: Type 1 (accept) or 0 (decline)\n");
     pc.printf("> ");
 }
+
+// 나머지 FSM 루프 및 프로세스 함수는 기존과 동일하게 유지
+
 
 void L3_FSMrun(void) {
     if (prev_state != main_state) {
@@ -329,6 +297,7 @@ void L3_FSMrun(void) {
             } else {
                 is_chatting = 0;
                 current_chat_peer = 0;
+                L2_resetFSM(); 
                 L3_transitionToState(L3STATE_IDLE);
                 pc.printf("[L3] Chat ended\n> ");
             }
@@ -444,6 +413,7 @@ static void L3_processCHAT_END(const uint8_t* pdu_data, uint8_t size) {
     if (sender_id == current_chat_peer) {
         L3_transitionToState(L3STATE_DISCONNECTION);
         next_target = 0; // 종료 목적
+        L2_resetFSM();
         pc.printf("[L3] Chat ended by peer\n");
     }
 }

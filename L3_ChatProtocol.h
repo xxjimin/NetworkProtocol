@@ -1,5 +1,7 @@
-#ifndef L3_CHATPROTOCOL_H
-#define L3_CHATPROTOCOL_H
+#ifndef __L3_CHAT_PROTOCOL_H__
+#define __L3_CHAT_PROTOCOL_H__
+
+#include <stdint.h>
 
 // 메시지 타입 정의
 #define L3_MSG_TYPE_BEACON      0x10  // 주기적 브로드캐스트 (나를 좋아하는 기기 정보 포함)
@@ -21,7 +23,7 @@
 typedef struct {
     uint8_t deviceId;
     int16_t rssi;
-    uint32_t lastSeen;  // 마지막으로 비콘 받은 시간
+    uint32_t lastSeen;
 } MatchInfo_t;
 
 // L3 초기화
@@ -30,25 +32,23 @@ void L3_initChatProtocol(uint8_t myId, uint8_t likedId);
 // 주기적 비콘 전송
 void L3_sendBeacon(void);
 
-// 매칭된 기기 목록 가져오기 (C++98 호환)
+// 매칭된 기기 목록 가져오기
 void L3_getMatchedDevicesList(MatchInfo_t** matches, int* count);
 
-// 채팅 요청
+// 채팅 요청/전송/종료
 void L3_requestChat(uint8_t targetId);
-
-// 채팅 메시지 전송
 void L3_sendChatMessage(const char* message);
-
-// 채팅 종료
 void L3_endChat(void);
 
-// 현재 채팅 상태 확인
+// 상태 조회
 uint8_t L3_getChatState(void);
-
-// 현재 채팅 상대 ID
 uint8_t L3_getCurrentChatPartner(void);
 
-// 주기적으로 호출되어야 하는 함수 (타임아웃 처리 등)
+// 수락 대기 상태 확인 및 처리 (새로 추가된 부분)
+uint8_t L3_hasPendingRequest(void);
+void L3_processPendingResponse(char c);
+
+// 주기적 작업 (타임아웃, 오래된 매칭 삭제 등)
 void L3_periodicTask(void);
 
-#endif
+#endif  // __L3_CHAT_PROTOCOL_H__

@@ -19,5 +19,6 @@ void L2_event_setEventFlag(L2_event_e event);
 void L2_event_clearEventFlag(L2_event_e event);
 void L2_event_clearAllEventFlag(void);
 int L2_event_checkEventFlag(L2_event_e event);
+void L2_resetFSM(void);
 
 #endif
