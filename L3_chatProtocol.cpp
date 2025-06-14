@@ -238,17 +238,18 @@ static void handleChatRequest(uint8_t* data, uint8_t srcId, uint8_t size, int8_t
 static void handleChatAck(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr, int16_t rssi) {
     if (size < 3) return;
     if (chatState != L3_CHAT_REQUESTING) return;
-    
+
     uint8_t ackFrom = data[1];
-    
+
     if (ackFrom == currentChatPartner) {
         chatState = L3_CHAT_ACTIVE;
+        currentChatPartner = ackFrom; // 🔥 이 줄이 빠졌을 가능성 있음
         pc.printf("\n[CHAT] Chat accepted by device %d!\n", ackFrom);
         pc.printf("You are now chatting with device %d. Type 'quit' to end.\n", ackFrom);
         pc.printf("[DEBUG] current chatState = %d\n", chatState);
-
     }
 }
+
 
 // 채팅 거절 처리
 static void handleChatNack(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr, int16_t rssi) {
@@ -298,7 +299,7 @@ static void handleChatMessage(uint8_t* data, uint8_t srcId, uint8_t size, int8_t
     
     char message[100] = {0};
     memcpy(message, &data[3], size - 3);
-    
+    pc.printf("[DEBUG] handleChatMessage - sender: %d, target: %d, myId: %d, currentPartner: %d, chatState: %d\n", senderId, targetId, myDeviceId, currentChatPartner, chatState);
     pc.printf("\n[Device %d]: %s\n", senderId, message);
     pc.printf("[DEBUG] current chatState = %d\n", chatState);
 
@@ -307,21 +308,25 @@ static void handleChatMessage(uint8_t* data, uint8_t srcId, uint8_t size, int8_t
 // 채팅 종료
 void L3_endChat(void) {
     if (chatState != L3_CHAT_ACTIVE) return;
-    
+
     uint8_t end[3];
     end[0] = L3_MSG_TYPE_CHAT_END;
     end[1] = myDeviceId;
     end[2] = currentChatPartner;
-    
+
     L3_LLI_dataReq(end, 3, currentChatPartner);
     
     pc.printf("[CHAT] Ending chat with device %d\n", currentChatPartner);
     pc.printf("[DEBUG] current chatState = %d\n", chatState);
 
-    
+    wait(0.1);  // 💡 전송 보장용 약간의 시간 지연
+
     chatState = L3_CHAT_IDLE;
     currentChatPartner = 0;
+    L3_transitionToState(L3STATE_IDLE);
+
 }
+
 
 void L3_acceptChatRequest(void) {
     if (chatState == L3_CHAT_PENDING && pendingChatRequestId != 0) {
