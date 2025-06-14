@@ -4,11 +4,17 @@
 #include "protocol_parameters.h"
 #include <string.h>
 
+extern Serial pc;
+
+
 // 상태 변수
 static uint8_t myDeviceId;
 static uint8_t likedDeviceId;
 static uint8_t chatState = L3_CHAT_IDLE;
 static uint8_t currentChatPartner = 0;
+// 상단에 추가 (전역 변수)
+static uint8_t pendingChatRequestId = 0;
+
 
 // 매칭 정보 저장 (정적 배열)
 static MatchInfo_t matchedDevices[L3_MAX_MATCHES];
@@ -71,6 +77,8 @@ void L3_reconfigSrcIdCnf(int err) {
         pc.printf("[L3] Device ID successfully changed to %d\n", myDeviceId);
     } else {
         pc.printf("[L3] Failed to change device ID\n");
+        pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     }
 }
 
@@ -95,6 +103,8 @@ void L3_initChatProtocol(uint8_t myId, uint8_t likedId) {
     
     pc.printf("\n[L3] Chat Protocol Initialized\n");
     pc.printf("My ID: %d, I like ID: %d\n", myDeviceId, likedDeviceId);
+    pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
 }
 
 // 비콘 전송
@@ -187,9 +197,12 @@ void L3_requestChat(uint8_t targetId) {
     
     L3_LLI_dataReq(req, 3, targetId);
     pc.printf("[CHAT] Requesting chat with device %d...\n", targetId);
+    pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
 }
 
 // 채팅 요청 처리
+// 수정된 handleChatRequest()
 static void handleChatRequest(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr, int16_t rssi) {
     if (size < 3) return;
     
@@ -197,31 +210,29 @@ static void handleChatRequest(uint8_t* data, uint8_t srcId, uint8_t size, int8_t
     uint8_t targetId = data[2];
     
     if (targetId != myDeviceId) return;
-    
-    uint8_t resp[3];
-    
+
     if (chatState == L3_CHAT_IDLE) {
-        // 채팅 수락
-        resp[0] = L3_MSG_TYPE_CHAT_ACK;
-        resp[1] = myDeviceId;
-        resp[2] = requesterId;
+        chatState = L3_CHAT_PENDING;
+        pendingChatRequestId = requesterId;
         
-        chatState = L3_CHAT_ACTIVE;
-        currentChatPartner = requesterId;
-        
-        pc.printf("\n[CHAT] Chat request from device %d - ACCEPTED\n", requesterId);
-        pc.printf("You are now chatting with device %d. Type 'quit' to end.\n", requesterId);
+        pc.printf("\n[CHAT] Chat request from device %d\n", requesterId);
+        pc.printf("Type 'accept' or 'decline'\n");
+        pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     } else {
-        // 채팅 거절 (이미 채팅 중)
+        // 내가 이미 채팅 중일 경우 바로 NACK 전송
+        uint8_t resp[3];
         resp[0] = L3_MSG_TYPE_CHAT_NACK;
         resp[1] = myDeviceId;
         resp[2] = requesterId;
-        
+
+        L3_LLI_dataReq(resp, 3, requesterId);
         pc.printf("\n[CHAT] Chat request from device %d - REJECTED (busy)\n", requesterId);
+        pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     }
-    
-    L3_LLI_dataReq(resp, 3, requesterId);
 }
+
 
 // 채팅 수락 처리
 static void handleChatAck(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr, int16_t rssi) {
@@ -234,6 +245,8 @@ static void handleChatAck(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr
         chatState = L3_CHAT_ACTIVE;
         pc.printf("\n[CHAT] Chat accepted by device %d!\n", ackFrom);
         pc.printf("You are now chatting with device %d. Type 'quit' to end.\n", ackFrom);
+        pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     }
 }
 
@@ -248,6 +261,8 @@ static void handleChatNack(uint8_t* data, uint8_t srcId, uint8_t size, int8_t sn
         chatState = L3_CHAT_IDLE;
         currentChatPartner = 0;
         pc.printf("\n[CHAT] Device %d is busy in another chat!\n", nackFrom);
+        pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     }
 }
 
@@ -285,6 +300,8 @@ static void handleChatMessage(uint8_t* data, uint8_t srcId, uint8_t size, int8_t
     memcpy(message, &data[3], size - 3);
     
     pc.printf("\n[Device %d]: %s\n", senderId, message);
+    pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
 }
 
 // 채팅 종료
@@ -299,10 +316,43 @@ void L3_endChat(void) {
     L3_LLI_dataReq(end, 3, currentChatPartner);
     
     pc.printf("[CHAT] Ending chat with device %d\n", currentChatPartner);
+    pc.printf("[DEBUG] current chatState = %d\n", chatState);
+
     
     chatState = L3_CHAT_IDLE;
     currentChatPartner = 0;
 }
+
+void L3_acceptChatRequest(void) {
+    if (chatState == L3_CHAT_PENDING && pendingChatRequestId != 0) {
+        uint8_t ack[3] = { L3_MSG_TYPE_CHAT_ACK, myDeviceId, pendingChatRequestId };
+        L3_LLI_dataReq(ack, 3, pendingChatRequestId);
+        currentChatPartner = pendingChatRequestId;
+        chatState = L3_CHAT_ACTIVE;
+        pendingChatRequestId = 0;
+        pc.printf("[CHAT] You are now chatting with device %d. Type 'quit' to end.\n", currentChatPartner);
+    } else {
+        pc.printf("[CHAT] No pending request to accept.\n");
+        
+    }
+}
+
+void L3_declineChatRequest(void) {
+    if (chatState == L3_CHAT_PENDING && pendingChatRequestId != 0) {
+        uint8_t nack[3] = { L3_MSG_TYPE_CHAT_NACK, myDeviceId, pendingChatRequestId };
+        L3_LLI_dataReq(nack, 3, pendingChatRequestId);
+        chatState = L3_CHAT_IDLE;
+        pendingChatRequestId = 0;
+        pc.printf("[CHAT] Chat request declined.\n");
+    } else {
+        pc.printf("[CHAT] No pending request to decline.\n");
+    }
+}
+
+uint8_t L3_hasPendingChatRequest(void) {
+    return (chatState == L3_CHAT_PENDING && pendingChatRequestId != 0);
+}
+
 
 // 채팅 종료 처리
 static void handleChatEnd(uint8_t* data, uint8_t srcId, uint8_t size, int8_t snr, int16_t rssi) {

@@ -136,6 +136,12 @@ void handleIdleInput(const char* input) {
     if (strcmp(input, "list") == 0) {
         displayMatchedDevices();
     }
+        else if (strcmp(input, "accept") == 0) {
+        L3_acceptChatRequest();
+    }
+    else if (strcmp(input, "decline") == 0) {
+        L3_declineChatRequest();
+    }
     else if (strncmp(input, "chat ", 5) == 0) {
         int targetId = 0;
         if (sscanf(input + 5, "%d", &targetId) == 1) {
@@ -164,6 +170,8 @@ void handleIdleInput(const char* input) {
     else if (strlen(input) > 0) {
         pc.printf("[ERROR] Unknown command. Available commands: list, chat <ID>\n");
     }
+
+
 }
 
 // 채팅 상태 입력 처리

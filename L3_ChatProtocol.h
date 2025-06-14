@@ -13,6 +13,7 @@
 #define L3_CHAT_IDLE            0
 #define L3_CHAT_REQUESTING      1
 #define L3_CHAT_ACTIVE          2
+#define L3_CHAT_PENDING      3
 
 // 최대 매칭 기기 수
 #define L3_MAX_MATCHES          10
@@ -50,5 +51,10 @@ uint8_t L3_getCurrentChatPartner(void);
 
 // 주기적으로 호출되어야 하는 함수 (타임아웃 처리 등)
 void L3_periodicTask(void);
+
+void L3_acceptChatRequest(void);
+void L3_declineChatRequest(void);
+uint8_t L3_hasPendingChatRequest(void);
+
 
 #endif
